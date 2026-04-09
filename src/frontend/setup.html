@@ -57,17 +57,32 @@
           <button class="btn btn-sm" id="a-save-prompt-btn">Save</button>
         </div>
 
-        <!-- Part 3: MCP Server Configuration -->
+        <!-- Part 3: MCP Server Configuration (up to 5) -->
         <div class="setup-section" id="a-mcp-section">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <h3 style="margin: 0;">Part 3: MCP Server Configuration</h3>
-            <span id="a-mcp-status-badge" class="status-badge" style="display:none;"></span>
+          <h3>Part 3: MCP Server Configuration</h3>
+          <div class="mcp-server-slot" data-slot="1">
+            <label>MCP Server 1 <span id="a-mcp-status-1" class="status-badge" style="display:none;"></span></label>
+            <input type="text" id="a-mcp-url-1" placeholder="https://your-mcp-server.example.com/mcp/...">
           </div>
-          <label for="a-mcp-urls">MCP Server URL</label>
-          <input type="text" id="a-mcp-urls" placeholder="https://your-mcp-server.example.com/mcp/...">
-          <div style="display: flex; gap: 8px;">
-            <button class="btn btn-sm btn-primary" id="a-test-mcp-btn">Test &amp; Save</button>
-            <button class="btn btn-sm btn-danger" id="a-disconnect-mcp-btn" style="display:none;">Disconnect</button>
+          <div class="mcp-server-slot" data-slot="2">
+            <label>MCP Server 2 <span id="a-mcp-status-2" class="status-badge" style="display:none;"></span></label>
+            <input type="text" id="a-mcp-url-2" placeholder="(optional)">
+          </div>
+          <div class="mcp-server-slot" data-slot="3">
+            <label>MCP Server 3 <span id="a-mcp-status-3" class="status-badge" style="display:none;"></span></label>
+            <input type="text" id="a-mcp-url-3" placeholder="(optional)">
+          </div>
+          <div class="mcp-server-slot" data-slot="4">
+            <label>MCP Server 4 <span id="a-mcp-status-4" class="status-badge" style="display:none;"></span></label>
+            <input type="text" id="a-mcp-url-4" placeholder="(optional)">
+          </div>
+          <div class="mcp-server-slot" data-slot="5">
+            <label>MCP Server 5 <span id="a-mcp-status-5" class="status-badge" style="display:none;"></span></label>
+            <input type="text" id="a-mcp-url-5" placeholder="(optional)">
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 8px;">
+            <button class="btn btn-sm btn-primary" id="a-test-mcp-btn">Test &amp; Save All</button>
+            <button class="btn btn-sm btn-danger" id="a-disconnect-mcp-btn" style="display:none;">Disconnect All</button>
           </div>
           <div id="a-mcp-test-result"></div>
           <div id="a-mcp-tools-list" style="display:none; margin-top: 12px;"></div>
@@ -140,17 +155,32 @@
           <button class="btn btn-sm" id="b-save-prompt-btn">Save</button>
         </div>
 
-        <!-- Part 3: MCP Server Configuration -->
+        <!-- Part 3: MCP Server Configuration (up to 5) -->
         <div class="setup-section" id="b-mcp-section">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <h3 style="margin: 0;">Part 3: MCP Server Configuration</h3>
-            <span id="b-mcp-status-badge" class="status-badge" style="display:none;"></span>
+          <h3>Part 3: MCP Server Configuration</h3>
+          <div class="mcp-server-slot" data-slot="1">
+            <label>MCP Server 1 <span id="b-mcp-status-1" class="status-badge" style="display:none;"></span></label>
+            <input type="text" id="b-mcp-url-1" placeholder="https://your-mcp-server.example.com/mcp/...">
           </div>
-          <label for="b-mcp-urls">MCP Server URL</label>
-          <input type="text" id="b-mcp-urls" placeholder="https://your-mcp-server.example.com/mcp/...">
-          <div style="display: flex; gap: 8px;">
-            <button class="btn btn-sm btn-primary" id="b-test-mcp-btn">Test &amp; Save</button>
-            <button class="btn btn-sm btn-danger" id="b-disconnect-mcp-btn" style="display:none;">Disconnect</button>
+          <div class="mcp-server-slot" data-slot="2">
+            <label>MCP Server 2 <span id="b-mcp-status-2" class="status-badge" style="display:none;"></span></label>
+            <input type="text" id="b-mcp-url-2" placeholder="(optional)">
+          </div>
+          <div class="mcp-server-slot" data-slot="3">
+            <label>MCP Server 3 <span id="b-mcp-status-3" class="status-badge" style="display:none;"></span></label>
+            <input type="text" id="b-mcp-url-3" placeholder="(optional)">
+          </div>
+          <div class="mcp-server-slot" data-slot="4">
+            <label>MCP Server 4 <span id="b-mcp-status-4" class="status-badge" style="display:none;"></span></label>
+            <input type="text" id="b-mcp-url-4" placeholder="(optional)">
+          </div>
+          <div class="mcp-server-slot" data-slot="5">
+            <label>MCP Server 5 <span id="b-mcp-status-5" class="status-badge" style="display:none;"></span></label>
+            <input type="text" id="b-mcp-url-5" placeholder="(optional)">
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 8px;">
+            <button class="btn btn-sm btn-primary" id="b-test-mcp-btn">Test &amp; Save All</button>
+            <button class="btn btn-sm btn-danger" id="b-disconnect-mcp-btn" style="display:none;">Disconnect All</button>
           </div>
           <div id="b-mcp-test-result"></div>
           <div id="b-mcp-tools-list" style="display:none; margin-top: 12px;"></div>

@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
-import type { AppEnv, ChatRequest, LLMMessage, ConfigMode } from '../types';
+import type { AppEnv, ChatRequest, LLMMessage } from '../types';
 import { getConfig, getModeConfig } from '../services/config';
 import { streamChat, estimateCost, type LLMTool } from '../services/llm';
 import { connectMCP, mcpToolsToLLMTools } from '../services/mcp-client';
@@ -64,25 +64,50 @@ chatRoutes.post('/', async (c) => {
   const noopCallTool = async (_name: string, _args: Record<string, unknown>) => 'No tools configured';
 
   if (toolSource === 'mcp') {
-    const mcpUrls = modeConfig.mcp_server_urls;
-    if (mcpUrls && mcpUrls.trim()) {
+    // Collect up to 5 MCP server URLs
+    const mcpUrls: string[] = [];
+    for (let i = 1; i <= 5; i++) {
+      const url = modeConfig[`mcp_server_url_${i}`];
+      if (url && url.trim()) mcpUrls.push(url.trim());
+    }
+
+    if (mcpUrls.length > 0) {
       try {
-        const mcpClient = await connectMCP(mcpUrls.split('\n')[0].trim());
-        tools = mcpToolsToLLMTools(mcpClient.tools);
+        // Connect to all MCP servers in parallel
+        const mcpClients = await Promise.all(mcpUrls.map((url) => connectMCP(url)));
+
+        // Aggregate tools from all servers
+        for (const client of mcpClients) {
+          tools = tools.concat(mcpToolsToLLMTools(client.tools));
+        }
+
+        // Build a unified callTool that routes to the correct server
+        const toolToClient = new Map<string, typeof mcpClients[0]>();
+        for (const client of mcpClients) {
+          for (const t of client.tools) {
+            toolToClient.set(t.name, client);
+          }
+        }
+
+        const callTool = async (name: string, args: Record<string, unknown>): Promise<string> => {
+          const client = toolToClient.get(name);
+          if (!client) return `Error: tool "${name}" not found on any connected MCP server`;
+          return client.callTool(name, args);
+        };
 
         return streamSSE(c, async (stream) => {
           await handleStreamWithTools(
-            stream, c.env.DB, body.session_id, provider, apiKey, selectedModel, messages, systemPrompt, tools, mcpClient.callTool, sequence
+            stream, c.env.DB, body.session_id, provider, apiKey, selectedModel, messages, systemPrompt, tools, callTool, sequence
           );
         });
       } catch (e: unknown) {
         return c.json({
-          error: `MCP server connection failed: ${e instanceof Error ? e.message : String(e)}. Please check the MCP URL in Setup.`
+          error: `MCP server connection failed: ${e instanceof Error ? e.message : String(e)}. Please check the MCP URLs in Setup.`
         }, 422);
       }
     }
 
-    // No MCP URL — plain chat
+    // No MCP URLs — plain chat
     return streamSSE(c, async (stream) => {
       await handleStreamWithTools(
         stream, c.env.DB, body.session_id, provider, apiKey, selectedModel, messages, systemPrompt, [], noopCallTool, sequence

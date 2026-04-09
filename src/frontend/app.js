@@ -300,10 +300,11 @@ async function generateReport() {
 
       const toolSource = get('tool_source');
       if (toolSource === 'mcp' || toolSource === '(not set)') {
-        const mcpUrl = get('mcp_server_urls');
-        report += `MCP Server URL:    ${mcpUrl}\n`;
-        // Fetch MCP tool details if URL is configured
-        if (mcpUrl && mcpUrl !== '(not set)') {
+        let globalToolIndex = 0;
+        for (let s = 1; s <= 5; s++) {
+          const mcpUrl = get(`mcp_server_url_${s}`);
+          if (!mcpUrl || mcpUrl === '(not set)') continue;
+          report += `MCP Server ${s}:     ${mcpUrl}\n`;
           try {
             const mcpRes = await fetch(`${API}/config/test-mcp`, {
               method: 'POST',
@@ -312,19 +313,22 @@ async function generateReport() {
             });
             const mcpData = await mcpRes.json();
             if (mcpData.ok) {
-              report += `MCP Tools Count:   ${mcpData.tools}\n`;
-              report += `MCP Tools List:\n`;
-              (mcpData.toolList || []).forEach((t, i) => {
-                report += `  [${i + 1}] ${t.name}`;
+              report += `  Tools Count: ${mcpData.tools}\n`;
+              (mcpData.toolList || []).forEach((t) => {
+                globalToolIndex++;
+                report += `  [${globalToolIndex}] ${t.name}`;
                 if (t.description) report += ` — ${t.description}`;
                 report += '\n';
               });
             } else {
-              report += `MCP Status:        Connection failed (${mcpData.error})\n`;
+              report += `  Status: Connection failed (${mcpData.error})\n`;
             }
           } catch {
-            report += `MCP Status:        Could not fetch tool details\n`;
+            report += `  Status: Could not fetch tool details\n`;
           }
+        }
+        if (globalToolIndex > 0) {
+          report += `Total MCP Tools:   ${globalToolIndex}\n`;
         }
       }
 

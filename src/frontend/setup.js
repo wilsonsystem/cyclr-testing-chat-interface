@@ -133,23 +133,31 @@ function setupMode(mode) {
     showResult(`${mode}-llm-test-result`, false, 'Disconnected.');
   });
 
-  // --- MCP ---
+  // --- MCP (up to 5 servers) ---
 
-  function setMCPConnected(connected, serverName) {
-    state.mcpConnected = connected;
-    const badge = el(`${mode}-mcp-status-badge`);
-    const testBtn = el(`${mode}-test-mcp-btn`);
-    const disconnectBtn = el(`${mode}-disconnect-mcp-btn`);
-    el(`${mode}-mcp-urls`).disabled = connected;
+  const MCP_SLOTS = [1, 2, 3, 4, 5];
 
+  function setMCPSlotStatus(slot, connected, info) {
+    const badge = el(`${mode}-mcp-status-${slot}`);
     if (connected) {
       badge.style.display = 'inline-block';
       badge.className = 'status-badge connected';
-      badge.textContent = `Connected — ${serverName || 'MCP Server'}`;
+      badge.textContent = info || 'Connected';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  function setMCPConnected(connected) {
+    state.mcpConnected = connected;
+    const testBtn = el(`${mode}-test-mcp-btn`);
+    const disconnectBtn = el(`${mode}-disconnect-mcp-btn`);
+    MCP_SLOTS.forEach(s => { el(`${mode}-mcp-url-${s}`).disabled = connected; });
+
+    if (connected) {
       testBtn.style.display = 'none';
       disconnectBtn.style.display = 'inline-block';
     } else {
-      badge.style.display = 'none';
       testBtn.style.display = 'inline-block';
       disconnectBtn.style.display = 'none';
     }
@@ -163,7 +171,7 @@ function setupMode(mode) {
       return;
     }
 
-    let html = '<label style="font-size: 13px; font-weight: 500; color: #555; margin-bottom: 6px; display: block;">Available Tools / Methods</label>';
+    let html = '<label style="font-size: 13px; font-weight: 500; color: #555; margin-bottom: 6px; display: block;">Available Tools / Methods (all servers)</label>';
     html += '<div class="mcp-tools-grid">';
     tools.forEach((t, i) => {
       const name = (t.name || '').replace(/---/g, ' > ').replace(/-/g, ' ').replace(/_/g, ' ');
@@ -179,37 +187,67 @@ function setupMode(mode) {
   }
 
   el(`${mode}-test-mcp-btn`).addEventListener('click', async () => {
-    const url = el(`${mode}-mcp-urls`).value.trim();
-    if (!url) return showResult(`${mode}-mcp-test-result`, false, 'Please enter an MCP server URL');
+    const urls = MCP_SLOTS.map(s => el(`${mode}-mcp-url-${s}`).value.trim()).filter(Boolean);
+    if (urls.length === 0) return showResult(`${mode}-mcp-test-result`, false, 'Please enter at least one MCP server URL');
 
-    showResult(`${mode}-mcp-test-result`, true, 'Testing...');
-    try {
-      const res = await fetch(`${API}/config/test-mcp`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ url }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        await saveConfig(prefixKeys(mode, { mcp_server_urls: url }));
-        const info = data.tools !== undefined ? `${data.tools} tools available` : data.server;
-        showResult(`${mode}-mcp-test-result`, true, `Connected and saved! ${info}`);
-        setMCPConnected(true, info);
-        showMCPTools(data.toolList || []);
-      } else {
-        showResult(`${mode}-mcp-test-result`, false, `Failed: ${data.error}`);
+    showResult(`${mode}-mcp-test-result`, true, 'Testing all servers...');
+    let totalTools = 0;
+    let allTools = [];
+    let successCount = 0;
+    const configToSave = {};
+
+    for (const slot of MCP_SLOTS) {
+      const url = el(`${mode}-mcp-url-${slot}`).value.trim();
+      configToSave[`mcp_server_url_${slot}`] = url;
+      if (!url) {
+        setMCPSlotStatus(slot, false);
+        continue;
       }
-    } catch (e) {
-      showResult(`${mode}-mcp-test-result`, false, `Error: ${e.message}`);
+      try {
+        const res = await fetch(`${API}/config/test-mcp`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          const count = data.tools || 0;
+          totalTools += count;
+          allTools = allTools.concat(data.toolList || []);
+          setMCPSlotStatus(slot, true, `${count} tools`);
+          successCount++;
+        } else {
+          setMCPSlotStatus(slot, false);
+          showResult(`${mode}-mcp-test-result`, false, `Server ${slot} failed: ${data.error}`);
+        }
+      } catch (e) {
+        setMCPSlotStatus(slot, false);
+        showResult(`${mode}-mcp-test-result`, false, `Server ${slot} error: ${e.message}`);
+      }
+    }
+
+    await saveConfig(prefixKeys(mode, configToSave));
+
+    if (successCount > 0) {
+      showResult(`${mode}-mcp-test-result`, true, `Connected ${successCount} server(s), ${totalTools} total tools. Saved!`);
+      setMCPConnected(true);
+      showMCPTools(allTools);
+    } else {
+      showResult(`${mode}-mcp-test-result`, false, 'No servers connected.');
     }
   });
 
   el(`${mode}-disconnect-mcp-btn`).addEventListener('click', async () => {
-    await saveConfig(prefixKeys(mode, { mcp_server_urls: '' }));
-    el(`${mode}-mcp-urls`).value = '';
+    const configToSave = {};
+    MCP_SLOTS.forEach(s => {
+      configToSave[`mcp_server_url_${s}`] = '';
+      el(`${mode}-mcp-url-${s}`).value = '';
+      setMCPSlotStatus(s, false);
+    });
+    await saveConfig(prefixKeys(mode, configToSave));
     setMCPConnected(false);
     showMCPTools([]);
-    showResult(`${mode}-mcp-test-result`, false, 'Disconnected.');
+    showResult(`${mode}-mcp-test-result`, false, 'All servers disconnected.');
   });
 
   // --- System Prompt ---
@@ -306,22 +344,36 @@ function setupMode(mode) {
     if (get('llm_provider')) el(`${mode}-llm-provider`).value = get('llm_provider');
     populateModels(mode, get('llm_provider') || 'anthropic', get('llm_model'));
     if (get('llm_api_key')) el(`${mode}-llm-api-key`).value = get('llm_api_key');
-    if (get('mcp_server_urls')) {
-      el(`${mode}-mcp-urls`).value = get('mcp_server_urls');
-      setMCPConnected(true, '...');
-      fetch(`${API}/config/test-mcp`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ url: get('mcp_server_urls') }),
-      }).then(r => r.json()).then(data => {
-        if (data.ok) {
-          setMCPConnected(true, `${data.tools} tools available`);
-          showMCPTools(data.toolList || []);
-        } else {
-          setMCPConnected(false);
-          showResult(`${mode}-mcp-test-result`, false, `MCP connection failed: ${data.error}`);
-        }
-      }).catch(() => {});
+    // Load MCP server URLs (up to 5)
+    let hasMcpUrls = false;
+    MCP_SLOTS.forEach(s => {
+      const url = get(`mcp_server_url_${s}`);
+      if (url) {
+        el(`${mode}-mcp-url-${s}`).value = url;
+        hasMcpUrls = true;
+      }
+    });
+    if (hasMcpUrls) {
+      setMCPConnected(true);
+      // Test each URL in background
+      let allTools = [];
+      MCP_SLOTS.forEach(s => {
+        const url = get(`mcp_server_url_${s}`);
+        if (!url) return;
+        fetch(`${API}/config/test-mcp`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ url }),
+        }).then(r => r.json()).then(data => {
+          if (data.ok) {
+            setMCPSlotStatus(s, true, `${data.tools} tools`);
+            allTools = allTools.concat(data.toolList || []);
+            showMCPTools(allTools);
+          } else {
+            setMCPSlotStatus(s, false);
+          }
+        }).catch(() => {});
+      });
     }
     if (get('system_prompt')) el(`${mode}-system-prompt`).value = get('system_prompt');
     if (get('tool_source')) el(`${mode}-tool-source`).value = get('tool_source');
