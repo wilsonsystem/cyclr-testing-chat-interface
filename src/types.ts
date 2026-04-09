@@ -7,6 +7,8 @@ export type AppEnv = {
 };
 
 export type ChatMode = 'mcp' | 'guided' | 'direct';
+export type ConfigMode = 'a' | 'b';
+export type ToolSource = 'mcp' | 'direct';
 
 export type MessageRole = 'user' | 'assistant' | 'system' | 'tool';
 
@@ -52,6 +54,7 @@ export interface ChatRequest {
   session_id: string;
   message: string;
   mode: ChatMode;
+  config_mode?: ConfigMode;
 }
 
 export interface LLMMessage {

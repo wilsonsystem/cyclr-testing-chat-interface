@@ -3,27 +3,35 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cyclr Chat</title>
+  <title>CYCLR Test Chat</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <div class="container">
+  <div class="container container-wide">
     <div class="header">
-      <h1>Cyclr Chat</h1>
+      <h1>CYCLR Test Chat</h1>
       <div class="header-actions">
-        <span id="session-id-display" class="session-id"></span>
         <button class="btn" id="new-chat-btn">New Chat</button>
         <button class="btn btn-danger" id="clear-btn">Clear</button>
         <button class="btn btn-primary" onclick="location.href='/setup.html'">Setup</button>
       </div>
     </div>
 
-    <div class="chat-area" id="chat-area"></div>
-
-    <div class="mode-selector">
-      <button class="mode-btn active" data-mode="mcp">Mode I: MCP</button>
-      <button class="mode-btn" data-mode="guided">Mode II: Guided</button>
-      <button class="mode-btn" data-mode="direct">Mode III: Direct API</button>
+    <div class="dual-panel">
+      <div class="panel panel-a">
+        <div class="panel-header">
+          <span class="panel-title">Mode A <span id="a-session-id" class="session-id-inline"></span></span>
+          <span id="a-token-counter" class="token-counter">Tokens: 0 in / 0 out</span>
+        </div>
+        <div class="chat-area" id="chat-area-a"></div>
+      </div>
+      <div class="panel panel-b">
+        <div class="panel-header">
+          <span class="panel-title">Mode B <span id="b-session-id" class="session-id-inline"></span></span>
+          <span id="b-token-counter" class="token-counter">Tokens: 0 in / 0 out</span>
+        </div>
+        <div class="chat-area" id="chat-area-b"></div>
+      </div>
     </div>
 
     <div class="input-area">

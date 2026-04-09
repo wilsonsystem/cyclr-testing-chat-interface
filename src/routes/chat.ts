@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
-import type { AppEnv, ChatRequest, LLMMessage } from '../types';
-import { getConfig } from '../services/config';
+import type { AppEnv, ChatRequest, LLMMessage, ConfigMode } from '../types';
+import { getConfig, getModeConfig } from '../services/config';
 import { streamChat, estimateCost, type LLMTool } from '../services/llm';
 import { connectMCP, mcpToolsToLLMTools } from '../services/mcp-client';
 import { logUsage } from '../services/usage-logger';
@@ -14,14 +14,18 @@ chatRoutes.post('/', async (c) => {
     return c.json({ error: 'message and session_id are required' }, 400);
   }
 
-  const mode = body.mode ?? 'mcp';
-  const config = await getConfig(c.env.DB);
-  const provider = config.llm_provider as 'openai' | 'anthropic' | undefined;
-  const apiKey = config.llm_api_key;
-  const selectedModel = config.llm_model || undefined;
+  const configMode = body.config_mode ?? 'a';
+  const fullConfig = await getConfig(c.env.DB);
+  const modeConfig = getModeConfig(fullConfig, configMode);
+
+  const provider = modeConfig.llm_provider as 'openai' | 'anthropic' | undefined;
+  const apiKey = modeConfig.llm_api_key;
+  const selectedModel = modeConfig.llm_model || undefined;
+  const toolSource = modeConfig.tool_source || 'mcp';
+  const systemPrompt = modeConfig.system_prompt || undefined;
 
   if (!provider || !apiKey) {
-    return c.json({ error: 'LLM provider and API key must be configured in Setup' }, 422);
+    return c.json({ error: `Mode ${configMode.toUpperCase()}: LLM provider and API key must be configured in Setup` }, 422);
   }
 
   // Save user message to DB
@@ -38,6 +42,7 @@ chatRoutes.post('/', async (c) => {
     .run();
 
   // Update session with provider and mode
+  const mode = toolSource === 'direct' ? 'direct' : 'mcp';
   await c.env.DB
     .prepare('UPDATE chat_sessions SET llm_provider = ?, mode = ?, updated_at = datetime(\'now\') WHERE id = ?')
     .bind(provider, mode, body.session_id)
@@ -54,21 +59,12 @@ chatRoutes.post('/', async (c) => {
     content: m.content,
   }));
 
-  // Determine tools and system prompt based on mode
+  // Determine tools based on tool_source setting
   let tools: LLMTool[] = [];
-  let systemPrompt: string | undefined;
-
-  // No-op tool caller for plain chat (no tools)
   const noopCallTool = async (_name: string, _args: Record<string, unknown>) => 'No tools configured';
 
-  if (mode === 'mcp' || mode === 'guided') {
-    const mcpUrls = config.mcp_server_urls;
-
-    if (mode === 'guided') {
-      systemPrompt = config.system_prompt_guided || undefined;
-    }
-
-    // If MCP server is configured, connect and use tools
+  if (toolSource === 'mcp') {
+    const mcpUrls = modeConfig.mcp_server_urls;
     if (mcpUrls && mcpUrls.trim()) {
       try {
         const mcpClient = await connectMCP(mcpUrls.split('\n')[0].trim());
@@ -80,14 +76,13 @@ chatRoutes.post('/', async (c) => {
           );
         });
       } catch (e: unknown) {
-        // MCP unreachable — tell the user instead of silently falling back
         return c.json({
-          error: `MCP server connection failed: ${e instanceof Error ? e.message : String(e)}. Please check the MCP URL in Setup (Part 2) — the token may have expired.`
+          error: `MCP server connection failed: ${e instanceof Error ? e.message : String(e)}. Please check the MCP URL in Setup.`
         }, 422);
       }
     }
 
-    // No MCP URL configured — plain chat
+    // No MCP URL — plain chat
     return streamSSE(c, async (stream) => {
       await handleStreamWithTools(
         stream, c.env.DB, body.session_id, provider, apiKey, selectedModel, messages, systemPrompt, [], noopCallTool, sequence
@@ -95,20 +90,18 @@ chatRoutes.post('/', async (c) => {
     });
   }
 
-  if (mode === 'direct') {
+  if (toolSource === 'direct') {
     const { getCyclrToolsForLLM, handleCyclrToolCall } = await import('../services/cyclr-tools');
-    systemPrompt = config.system_prompt_direct || undefined;
 
     const cyclrConfig = {
-      accountId: config.cyclr_account_id,
-      clientId: config.cyclr_client_id,
-      clientSecret: config.cyclr_client_secret,
-      connectorId: config.cyclr_connector_id || '88534',
-      bearerToken: config.cyclr_bearer_token,
-      tokenExpiresAt: config.cyclr_token_expires_at,
+      accountId: modeConfig.cyclr_account_id,
+      clientId: modeConfig.cyclr_client_id,
+      clientSecret: modeConfig.cyclr_client_secret,
+      connectorId: modeConfig.cyclr_connector_id || '88534',
+      bearerToken: modeConfig.cyclr_bearer_token,
+      tokenExpiresAt: modeConfig.cyclr_token_expires_at,
     };
 
-    // If Cyclr credentials are configured, use Cyclr tools
     if (cyclrConfig.accountId && cyclrConfig.clientId && cyclrConfig.clientSecret) {
       tools = getCyclrToolsForLLM();
 
@@ -122,7 +115,7 @@ chatRoutes.post('/', async (c) => {
       });
     }
 
-    // Plain chat (no Cyclr tools)
+    // No Cyclr credentials — plain chat
     return streamSSE(c, async (stream) => {
       await handleStreamWithTools(
         stream, c.env.DB, body.session_id, provider, apiKey, selectedModel, messages, systemPrompt, [], noopCallTool, sequence
@@ -130,7 +123,7 @@ chatRoutes.post('/', async (c) => {
     });
   }
 
-  // Fallback — plain chat for any mode
+  // Fallback — plain chat
   return streamSSE(c, async (stream) => {
     await handleStreamWithTools(
       stream, c.env.DB, body.session_id, provider, apiKey, selectedModel, messages, systemPrompt, [], noopCallTool, sequence
@@ -154,20 +147,21 @@ async function handleStreamWithTools(
   let fullContent = '';
   let currentMessages = [...messages];
   let sequence = startSequence;
-  // Only allow tool-use loop if tools are actually provided; max 3 iterations
-  // (1: LLM calls tools, 2: LLM processes results + may call more, 3: LLM generates final text)
-  const maxIterations = tools.length > 0 ? 3 : 1;
-  let iteration = 0;
+  const maxToolRounds = tools.length > 0 ? 4 : 0;
+  let toolRound = 0;
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
   let lastModelName = '';
 
-  while (iteration < maxIterations) {
-    iteration++;
+  // Loop: tool rounds + 1 final text round
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    // On the final round (after max tool rounds), send without tools to force text output
+    const useTools = toolRound < maxToolRounds ? tools : [];
     let hasToolCalls = false;
     const pendingToolCalls: Array<{ id: string; name: string; arguments: Record<string, unknown> }> = [];
 
-    for await (const event of streamChat({ provider, apiKey, model }, currentMessages, systemPrompt, tools)) {
+    for await (const event of streamChat({ provider, apiKey, model }, currentMessages, systemPrompt, useTools)) {
       if (event.type === 'token' && event.content) {
         fullContent += event.content;
         await stream.writeSSE({ event: 'token', data: JSON.stringify({ content: event.content, done: false }) });
@@ -193,15 +187,12 @@ async function handleStreamWithTools(
       }
     }
 
-    if (!hasToolCalls) {
-      break;
-    }
+    if (!hasToolCalls) break;
+    toolRound++;
 
-    // Execute tool calls and feed results back (truncate large results to save tokens)
     for (const tc of pendingToolCalls) {
       try {
         let result = await callTool(tc.name, tc.arguments);
-        // Truncate very large tool results to prevent token explosion
         if (result.length > 40000) {
           result = result.slice(0, 40000) + '\n... [truncated, showing partial results]';
         }
@@ -225,7 +216,6 @@ async function handleStreamWithTools(
     fullContent = '';
   }
 
-  // Send aggregated usage once at the end
   if (lastModelName) {
     const cost = estimateCost(lastModelName, totalInputTokens, totalOutputTokens);
     await stream.writeSSE({
@@ -237,7 +227,6 @@ async function handleStreamWithTools(
       }),
     });
 
-    // Save assistant message and log usage
     const msgId = crypto.randomUUID();
     sequence++;
     await db

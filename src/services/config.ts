@@ -30,6 +30,18 @@ export async function setConfig(db: D1Database, entries: Record<string, string>)
   }
 }
 
+/** Extract mode-specific config (mode_a_* or mode_b_*) into unprefixed keys */
+export function getModeConfig(config: Record<string, string>, mode: 'a' | 'b'): Record<string, string> {
+  const prefix = `mode_${mode}_`;
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(config)) {
+    if (key.startsWith(prefix)) {
+      result[key.slice(prefix.length)] = value;
+    }
+  }
+  return result;
+}
+
 export function maskSecrets(config: Record<string, string>): Record<string, string> {
   const masked: Record<string, string> = {};
   for (const [key, value] of Object.entries(config)) {

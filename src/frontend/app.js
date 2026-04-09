@@ -1,74 +1,61 @@
 const API = '/api';
 
-let currentSessionId = null;
-let currentMode = 'mcp';
+const sessions = { a: null, b: null };
+const totalTokens = { a: { input: 0, output: 0 }, b: { input: 0, output: 0 } };
 let isSending = false;
 
-// --- Session ID display ---
-function updateSessionDisplay() {
-  const el = document.getElementById('session-id-display');
-  if (currentSessionId) {
-    el.textContent = 'Session: ' + currentSessionId.slice(0, 8) + '...';
-    el.title = currentSessionId;
-    el.style.display = 'inline-block';
+function updateTokenCounter(mode) {
+  const el = document.getElementById(`${mode}-token-counter`);
+  el.textContent = `Tokens: ${totalTokens[mode].input.toLocaleString()} in / ${totalTokens[mode].output.toLocaleString()} out`;
+}
+
+// --- Session display ---
+function updateSessionDisplay(mode) {
+  const el = document.getElementById(`${mode}-session-id`);
+  if (sessions[mode]) {
+    el.textContent = `(${sessions[mode].slice(0, 8)})`;
+    el.title = sessions[mode];
   } else {
-    el.style.display = 'none';
+    el.textContent = '';
   }
 }
 
-// --- Persist session across page navigation ---
-function saveSessionState() {
-  if (currentSessionId) {
-    sessionStorage.setItem('cyclr_session_id', currentSessionId);
-    sessionStorage.setItem('cyclr_session_mode', currentMode);
-    sessionStorage.setItem('cyclr_chat_html', document.getElementById('chat-area').innerHTML);
-  } else {
-    sessionStorage.removeItem('cyclr_session_id');
-    sessionStorage.removeItem('cyclr_session_mode');
-    sessionStorage.removeItem('cyclr_chat_html');
+// --- Persist/restore ---
+function saveState() {
+  for (const mode of ['a', 'b']) {
+    if (sessions[mode]) {
+      sessionStorage.setItem(`cyclr_session_${mode}`, sessions[mode]);
+      sessionStorage.setItem(`cyclr_chat_html_${mode}`, document.getElementById(`chat-area-${mode}`).innerHTML);
+    } else {
+      sessionStorage.removeItem(`cyclr_session_${mode}`);
+      sessionStorage.removeItem(`cyclr_chat_html_${mode}`);
+    }
   }
 }
 
-function restoreSessionState() {
-  const savedId = sessionStorage.getItem('cyclr_session_id');
-  const savedMode = sessionStorage.getItem('cyclr_session_mode');
-  const savedHtml = sessionStorage.getItem('cyclr_chat_html');
-
-  if (savedId) {
-    currentSessionId = savedId;
-    updateSessionDisplay();
-  }
-  if (savedMode) {
-    currentMode = savedMode;
-    document.querySelectorAll('.mode-btn').forEach((b) => {
-      b.classList.toggle('active', b.dataset.mode === currentMode);
-    });
-  }
-  if (savedHtml) {
-    document.getElementById('chat-area').innerHTML = savedHtml;
-    const chatArea = document.getElementById('chat-area');
-    chatArea.scrollTop = chatArea.scrollHeight;
+function restoreState() {
+  for (const mode of ['a', 'b']) {
+    const savedId = sessionStorage.getItem(`cyclr_session_${mode}`);
+    const savedHtml = sessionStorage.getItem(`cyclr_chat_html_${mode}`);
+    if (savedId) {
+      sessions[mode] = savedId;
+      updateSessionDisplay(mode);
+    }
+    if (savedHtml) {
+      const area = document.getElementById(`chat-area-${mode}`);
+      area.innerHTML = savedHtml;
+      area.scrollTop = area.scrollHeight;
+    }
   }
 }
 
-// Mode selector
-document.querySelectorAll('.mode-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentMode = btn.dataset.mode;
-    saveSessionState();
-  });
-});
-
-// Auto-resize textarea
+// --- Auto-resize textarea ---
 const input = document.getElementById('message-input');
 input.addEventListener('input', () => {
   input.style.height = 'auto';
   input.style.height = Math.min(input.scrollHeight, 120) + 'px';
 });
 
-// Send on Enter (Shift+Enter for newline)
 input.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
@@ -80,31 +67,24 @@ document.getElementById('send-btn').addEventListener('click', sendMessage);
 document.getElementById('new-chat-btn').addEventListener('click', newChat);
 document.getElementById('clear-btn').addEventListener('click', clearChat);
 
-async function ensureSession() {
-  if (!currentSessionId) {
+async function ensureSession(mode) {
+  if (!sessions[mode]) {
     const res = await fetch(`${API}/sessions`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ mode: currentMode }),
+      body: JSON.stringify({ mode: 'mcp' }),
     });
     const data = await res.json();
-    currentSessionId = data.id;
-    updateSessionDisplay();
-    saveSessionState();
+    sessions[mode] = data.id;
+    updateSessionDisplay(mode);
   }
 }
 
-function addMessage(role, content, extra) {
-  const chatArea = document.getElementById('chat-area');
+function addMessage(mode, role, content) {
+  const chatArea = document.getElementById(`chat-area-${mode}`);
   const div = document.createElement('div');
   div.className = `message ${role}`;
   div.textContent = content;
-  if (extra) {
-    const info = document.createElement('div');
-    info.className = 'usage-info';
-    info.textContent = extra;
-    div.appendChild(info);
-  }
   chatArea.appendChild(div);
   chatArea.scrollTop = chatArea.scrollHeight;
   return div;
@@ -118,20 +98,38 @@ async function sendMessage() {
   input.value = '';
   input.style.height = 'auto';
 
-  addMessage('user', text);
-  await ensureSession();
+  // Show user message in both panels
+  addMessage('a', 'user', text);
+  addMessage('b', 'user', text);
 
-  const assistantDiv = addMessage('assistant', '');
-  assistantDiv.innerHTML = '<span class="loading">Thinking</span>';
+  // Ensure both sessions exist
+  await Promise.all([ensureSession('a'), ensureSession('b')]);
 
+  // Create loading placeholders in both panels
+  const divA = addMessage('a', 'assistant', '');
+  divA.innerHTML = '<span class="loading">Thinking</span>';
+  const divB = addMessage('b', 'assistant', '');
+  divB.innerHTML = '<span class="loading">Thinking</span>';
+
+  // Fire both requests in parallel
+  await Promise.all([
+    streamResponse('a', text, divA),
+    streamResponse('b', text, divB),
+  ]);
+
+  isSending = false;
+  saveState();
+}
+
+async function streamResponse(mode, text, assistantDiv) {
   try {
     const res = await fetch(`${API}/chat`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        session_id: currentSessionId,
+        session_id: sessions[mode],
         message: text,
-        mode: currentMode,
+        config_mode: mode,
       }),
     });
 
@@ -139,12 +137,9 @@ async function sendMessage() {
       const err = await res.json();
       assistantDiv.className = 'message error';
       assistantDiv.textContent = err.error || 'Something went wrong';
-      isSending = false;
-      saveSessionState();
       return;
     }
 
-    // Read SSE stream
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -183,19 +178,19 @@ async function sendMessage() {
               }
             }
             if (data.input_tokens !== undefined) {
+              totalTokens[mode].input += data.input_tokens;
+              totalTokens[mode].output += data.output_tokens;
+              updateTokenCounter(mode);
               usageInfo = `Tokens: ${data.input_tokens} in / ${data.output_tokens} out`;
               if (data.estimated_cost_usd) {
                 usageInfo += ` | Cost: $${data.estimated_cost_usd.toFixed(4)}`;
               }
             }
           } catch {}
-        } else if (line.startsWith('event:')) {
-          // Just consume event type
         }
       }
     }
 
-    // Add usage info
     if (usageInfo) {
       const info = document.createElement('div');
       info.className = 'usage-info';
@@ -203,35 +198,45 @@ async function sendMessage() {
       assistantDiv.appendChild(info);
     }
 
-    const chatArea = document.getElementById('chat-area');
+    const chatArea = document.getElementById(`chat-area-${mode}`);
     chatArea.scrollTop = chatArea.scrollHeight;
   } catch (e) {
     assistantDiv.className = 'message error';
     assistantDiv.textContent = `Error: ${e.message}`;
   }
-
-  isSending = false;
-  saveSessionState();
 }
 
 async function newChat() {
-  currentSessionId = null;
-  document.getElementById('chat-area').innerHTML = '';
-  updateSessionDisplay();
-  saveSessionState();
+  sessions.a = null;
+  sessions.b = null;
+  document.getElementById('chat-area-a').innerHTML = '';
+  document.getElementById('chat-area-b').innerHTML = '';
+  totalTokens.a = { input: 0, output: 0 };
+  totalTokens.b = { input: 0, output: 0 };
+  updateTokenCounter('a');
+  updateTokenCounter('b');
+  updateSessionDisplay('a');
+  updateSessionDisplay('b');
+  saveState();
 }
 
 async function clearChat() {
-  if (currentSessionId) {
-    try {
-      await fetch(`${API}/sessions/${currentSessionId}`, { method: 'DELETE' });
-    } catch {}
+  for (const mode of ['a', 'b']) {
+    if (sessions[mode]) {
+      try { await fetch(`${API}/sessions/${sessions[mode]}`, { method: 'DELETE' }); } catch {}
+    }
   }
-  currentSessionId = null;
-  document.getElementById('chat-area').innerHTML = '';
-  updateSessionDisplay();
-  saveSessionState();
+  sessions.a = null;
+  sessions.b = null;
+  document.getElementById('chat-area-a').innerHTML = '';
+  document.getElementById('chat-area-b').innerHTML = '';
+  totalTokens.a = { input: 0, output: 0 };
+  totalTokens.b = { input: 0, output: 0 };
+  updateTokenCounter('a');
+  updateTokenCounter('b');
+  updateSessionDisplay('a');
+  updateSessionDisplay('b');
+  saveState();
 }
 
-// Restore session on page load
-restoreSessionState();
+restoreState();

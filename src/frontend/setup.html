@@ -7,85 +7,181 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <div class="setup-container">
+  <div class="setup-container setup-wide">
     <div class="setup-header">
       <h1>Setup</h1>
       <button class="btn" onclick="location.href='/'">Back to Chat</button>
     </div>
 
-    <!-- Part 1: Model Configuration -->
-    <div class="setup-section" id="llm-section">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <h3 style="margin: 0;">Part 1: Model Configuration</h3>
-        <span id="llm-status-badge" class="status-badge" style="display:none;"></span>
+    <div class="setup-modes-grid">
+      <!-- Mode A -->
+      <div class="setup-mode-column" data-mode="a">
+        <h2 class="mode-column-title">Mode A</h2>
+
+        <!-- Tool Source Selector -->
+        <div class="setup-section">
+          <h3>Tool Source</h3>
+          <select id="a-tool-source">
+            <option value="mcp">MCP (Tool Server)</option>
+            <option value="direct">Direct API (Cyclr)</option>
+          </select>
+        </div>
+
+        <!-- Part 1: Model Configuration -->
+        <div class="setup-section" id="a-llm-section">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0;">Part 1: Model Configuration</h3>
+            <span id="a-llm-status-badge" class="status-badge" style="display:none;"></span>
+          </div>
+          <label for="a-llm-provider">LLM Provider</label>
+          <select id="a-llm-provider">
+            <option value="anthropic">Anthropic</option>
+            <option value="openai">OpenAI</option>
+          </select>
+          <label for="a-llm-model">Model</label>
+          <select id="a-llm-model"></select>
+          <label for="a-llm-api-key">API Key</label>
+          <input type="password" id="a-llm-api-key" placeholder="Enter your API key">
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-sm btn-primary" id="a-test-llm-btn">Test &amp; Connect</button>
+            <button class="btn btn-sm btn-danger" id="a-disconnect-llm-btn" style="display:none;">Disconnect</button>
+          </div>
+          <div id="a-llm-test-result"></div>
+        </div>
+
+        <!-- Part 2: System Prompt -->
+        <div class="setup-section">
+          <h3>Part 2: System Prompt</h3>
+          <label for="a-system-prompt">System Prompt</label>
+          <textarea id="a-system-prompt" placeholder="Define a system prompt for Mode A..."></textarea>
+          <button class="btn btn-sm" id="a-save-prompt-btn">Save</button>
+        </div>
+
+        <!-- Part 3: MCP Server Configuration -->
+        <div class="setup-section" id="a-mcp-section">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0;">Part 3: MCP Server Configuration</h3>
+            <span id="a-mcp-status-badge" class="status-badge" style="display:none;"></span>
+          </div>
+          <label for="a-mcp-urls">MCP Server URL</label>
+          <input type="text" id="a-mcp-urls" placeholder="https://your-mcp-server.example.com/mcp/...">
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-sm btn-primary" id="a-test-mcp-btn">Test &amp; Save</button>
+            <button class="btn btn-sm btn-danger" id="a-disconnect-mcp-btn" style="display:none;">Disconnect</button>
+          </div>
+          <div id="a-mcp-test-result"></div>
+          <div id="a-mcp-tools-list" style="display:none; margin-top: 12px;"></div>
+        </div>
+
+        <!-- Part 4: Direct API Configuration -->
+        <div class="setup-section" id="a-cyclr-section">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0;">Part 4: Direct API Configuration (Cyclr)</h3>
+            <span id="a-cyclr-status-badge" class="status-badge" style="display:none;"></span>
+          </div>
+          <label for="a-cyclr-account">X-Cyclr Account</label>
+          <input type="text" id="a-cyclr-account" placeholder="Account ID">
+          <label for="a-cyclr-client-id">Client ID</label>
+          <input type="text" id="a-cyclr-client-id" placeholder="Client ID">
+          <label for="a-cyclr-client-secret">Client Secret</label>
+          <input type="password" id="a-cyclr-client-secret" placeholder="Client Secret">
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-sm btn-primary" id="a-test-cyclr-btn">Test &amp; Connect</button>
+            <button class="btn btn-sm btn-danger" id="a-disconnect-cyclr-btn" style="display:none;">Disconnect</button>
+          </div>
+          <div id="a-cyclr-test-result"></div>
+          <label for="a-cyclr-connector">Connector</label>
+          <select id="a-cyclr-connector">
+            <option value="88534">QuickBooks</option>
+          </select>
+        </div>
       </div>
-      <label for="llm-provider">LLM Provider</label>
-      <select id="llm-provider">
-        <option value="anthropic">Anthropic</option>
-        <option value="openai">OpenAI</option>
-      </select>
-      <label for="llm-model">Model</label>
-      <select id="llm-model"></select>
-      <label for="llm-api-key">API Key</label>
-      <input type="password" id="llm-api-key" placeholder="Enter your API key">
-      <div style="display: flex; gap: 8px;">
-        <button class="btn btn-sm btn-primary" id="test-llm-btn">Test &amp; Connect</button>
-        <button class="btn btn-sm btn-danger" id="disconnect-llm-btn" style="display:none;">Disconnect</button>
+
+      <!-- Mode B -->
+      <div class="setup-mode-column" data-mode="b">
+        <h2 class="mode-column-title">Mode B</h2>
+
+        <!-- Tool Source Selector -->
+        <div class="setup-section">
+          <h3>Tool Source</h3>
+          <select id="b-tool-source">
+            <option value="mcp">MCP (Tool Server)</option>
+            <option value="direct">Direct API (Cyclr)</option>
+          </select>
+        </div>
+
+        <!-- Part 1: Model Configuration -->
+        <div class="setup-section" id="b-llm-section">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0;">Part 1: Model Configuration</h3>
+            <span id="b-llm-status-badge" class="status-badge" style="display:none;"></span>
+          </div>
+          <label for="b-llm-provider">LLM Provider</label>
+          <select id="b-llm-provider">
+            <option value="anthropic">Anthropic</option>
+            <option value="openai">OpenAI</option>
+          </select>
+          <label for="b-llm-model">Model</label>
+          <select id="b-llm-model"></select>
+          <label for="b-llm-api-key">API Key</label>
+          <input type="password" id="b-llm-api-key" placeholder="Enter your API key">
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-sm btn-primary" id="b-test-llm-btn">Test &amp; Connect</button>
+            <button class="btn btn-sm btn-danger" id="b-disconnect-llm-btn" style="display:none;">Disconnect</button>
+          </div>
+          <div id="b-llm-test-result"></div>
+        </div>
+
+        <!-- Part 2: System Prompt -->
+        <div class="setup-section">
+          <h3>Part 2: System Prompt</h3>
+          <label for="b-system-prompt">System Prompt</label>
+          <textarea id="b-system-prompt" placeholder="Define a system prompt for Mode B..."></textarea>
+          <button class="btn btn-sm" id="b-save-prompt-btn">Save</button>
+        </div>
+
+        <!-- Part 3: MCP Server Configuration -->
+        <div class="setup-section" id="b-mcp-section">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0;">Part 3: MCP Server Configuration</h3>
+            <span id="b-mcp-status-badge" class="status-badge" style="display:none;"></span>
+          </div>
+          <label for="b-mcp-urls">MCP Server URL</label>
+          <input type="text" id="b-mcp-urls" placeholder="https://your-mcp-server.example.com/mcp/...">
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-sm btn-primary" id="b-test-mcp-btn">Test &amp; Save</button>
+            <button class="btn btn-sm btn-danger" id="b-disconnect-mcp-btn" style="display:none;">Disconnect</button>
+          </div>
+          <div id="b-mcp-test-result"></div>
+          <div id="b-mcp-tools-list" style="display:none; margin-top: 12px;"></div>
+        </div>
+
+        <!-- Part 4: Direct API Configuration -->
+        <div class="setup-section" id="b-cyclr-section">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0;">Part 4: Direct API Configuration (Cyclr)</h3>
+            <span id="b-cyclr-status-badge" class="status-badge" style="display:none;"></span>
+          </div>
+          <label for="b-cyclr-account">X-Cyclr Account</label>
+          <input type="text" id="b-cyclr-account" placeholder="Account ID">
+          <label for="b-cyclr-client-id">Client ID</label>
+          <input type="text" id="b-cyclr-client-id" placeholder="Client ID">
+          <label for="b-cyclr-client-secret">Client Secret</label>
+          <input type="password" id="b-cyclr-client-secret" placeholder="Client Secret">
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-sm btn-primary" id="b-test-cyclr-btn">Test &amp; Connect</button>
+            <button class="btn btn-sm btn-danger" id="b-disconnect-cyclr-btn" style="display:none;">Disconnect</button>
+          </div>
+          <div id="b-cyclr-test-result"></div>
+          <label for="b-cyclr-connector">Connector</label>
+          <select id="b-cyclr-connector">
+            <option value="88534">QuickBooks</option>
+          </select>
+        </div>
       </div>
-      <div id="llm-test-result"></div>
     </div>
 
-    <!-- Part 2: MCP Server Configuration -->
-    <div class="setup-section" id="mcp-section">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <h3 style="margin: 0;">Part 2: MCP Server Configuration</h3>
-        <span id="mcp-status-badge" class="status-badge" style="display:none;"></span>
-      </div>
-      <label for="mcp-urls">MCP Server URL</label>
-      <input type="text" id="mcp-urls" placeholder="https://your-mcp-server.example.com/mcp/...">
-      <div style="display: flex; gap: 8px;">
-        <button class="btn btn-sm btn-primary" id="test-mcp-btn">Test &amp; Save</button>
-        <button class="btn btn-sm btn-danger" id="disconnect-mcp-btn" style="display:none;">Disconnect</button>
-      </div>
-      <div id="mcp-test-result"></div>
-      <div id="mcp-tools-list" style="display:none; margin-top: 12px;"></div>
-    </div>
-
-    <!-- Part 3: System Prompt (Guided Mode) -->
-    <div class="setup-section">
-      <h3>Part 3: System Prompt (Guided Mode II)</h3>
-      <label for="system-prompt-guided">System Prompt</label>
-      <textarea id="system-prompt-guided" placeholder="Define a system prompt for guided mode..."></textarea>
-      <button class="btn btn-sm" id="save-prompt-btn">Save</button>
-    </div>
-
-    <!-- Part 4: Direct API Configuration -->
-    <div class="setup-section" id="cyclr-section">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <h3 style="margin: 0;">Part 4: Direct API Configuration (Cyclr)</h3>
-        <span id="cyclr-status-badge" class="status-badge" style="display:none;"></span>
-      </div>
-      <label for="cyclr-account">X-Cyclr Account</label>
-      <input type="text" id="cyclr-account" placeholder="Account ID">
-      <label for="cyclr-client-id">Client ID</label>
-      <input type="text" id="cyclr-client-id" placeholder="Client ID">
-      <label for="cyclr-client-secret">Client Secret</label>
-      <input type="password" id="cyclr-client-secret" placeholder="Client Secret">
-      <div style="display: flex; gap: 8px;">
-        <button class="btn btn-sm btn-primary" id="test-cyclr-btn">Test &amp; Connect</button>
-        <button class="btn btn-sm btn-danger" id="disconnect-cyclr-btn" style="display:none;">Disconnect</button>
-      </div>
-      <div id="cyclr-test-result"></div>
-      <label for="cyclr-connector">Connector</label>
-      <select id="cyclr-connector">
-        <option value="88534">QuickBooks</option>
-      </select>
-      <label for="system-prompt-direct">System Prompt / Instructions (Mode III)</label>
-      <textarea id="system-prompt-direct" placeholder="Instructions for direct API mode..."></textarea>
-      <button class="btn btn-sm" id="save-cyclr-prompt-btn">Save</button>
-    </div>
-
-    <!-- Usage Report -->
+    <!-- Usage Report (shared) -->
     <div class="setup-section">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <h3 style="margin: 0;">Token Usage Report</h3>

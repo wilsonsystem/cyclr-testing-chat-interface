@@ -41,13 +41,23 @@ interface LLMProviderConfig {
 }
 
 const DEFAULT_MODELS: Record<string, string> = {
-  openai: 'gpt-4o',
-  anthropic: 'claude-sonnet-4-20250514',
+  openai: 'gpt-4.1',
+  anthropic: 'claude-sonnet-4-6',
 };
 
 const COST_PER_1K: Record<string, { input: number; output: number }> = {
+  'gpt-4.1': { input: 0.002, output: 0.008 },
+  'gpt-4.1-mini': { input: 0.0004, output: 0.0016 },
+  'gpt-4.1-nano': { input: 0.0001, output: 0.0004 },
+  'o3': { input: 0.002, output: 0.008 },
+  'o4-mini': { input: 0.0011, output: 0.0044 },
   'gpt-4o': { input: 0.0025, output: 0.01 },
+  'gpt-4o-mini': { input: 0.00015, output: 0.0006 },
+  'claude-sonnet-4-6': { input: 0.003, output: 0.015 },
+  'claude-opus-4-6': { input: 0.015, output: 0.075 },
   'claude-sonnet-4-20250514': { input: 0.003, output: 0.015 },
+  'claude-opus-4-20250514': { input: 0.015, output: 0.075 },
+  'claude-haiku-4-5-20251001': { input: 0.0008, output: 0.004 },
 };
 
 export function estimateCost(model: string, inputTokens: number, outputTokens: number): number {

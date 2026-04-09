@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../types';
-import { getConfig, setConfig, maskSecrets, getConfigValue } from '../services/config';
+import { getConfig, setConfig, maskSecrets } from '../services/config';
 import { testLLMConnection } from '../services/llm';
 
 export const configRoutes = new Hono<AppEnv>();
@@ -36,10 +36,11 @@ configRoutes.post('/test-llm', async (c) => {
 
 // POST /api/config/test-cyclr — test Cyclr API connection
 configRoutes.post('/test-cyclr', async (c) => {
-  const { account_id, client_id, client_secret } = await c.req.json<{
+  const { account_id, client_id, client_secret, config_mode } = await c.req.json<{
     account_id: string;
     client_id: string;
     client_secret: string;
+    config_mode?: string;
   }>();
 
   if (!account_id || !client_id || !client_secret) {
@@ -64,10 +65,11 @@ configRoutes.post('/test-cyclr', async (c) => {
 
     const tokenData = await tokenRes.json<{ access_token: string; expires_in: number }>();
 
-    // Cache the token
+    // Cache the token with mode prefix if provided
+    const prefix = config_mode ? `mode_${config_mode}_` : '';
     await setConfig(c.env.DB, {
-      cyclr_bearer_token: tokenData.access_token,
-      cyclr_token_expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
+      [`${prefix}cyclr_bearer_token`]: tokenData.access_token,
+      [`${prefix}cyclr_token_expires_at`]: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
     });
 
     return c.json({ ok: true, token_expires_in: tokenData.expires_in });
