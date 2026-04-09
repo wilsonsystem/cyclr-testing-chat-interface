@@ -1,50 +1,52 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+  Sync Impact Report
+  Version change: 0.0.0 → 1.0.0
+  Modified principles: N/A (initial creation)
+  Added sections: Core Principles (3), Technology Constraints, Development Workflow, Governance
+  Removed sections: None
+  Templates requiring updates:
+    - .specify/templates/plan-template.md ✅ (no updates needed, generic structure)
+    - .specify/templates/spec-template.md ✅ (no updates needed, generic structure)
+    - .specify/templates/tasks-template.md ✅ (no updates needed, generic structure)
+  Follow-up TODOs: None
+-->
+
+# Cyclr Testing Chat Interface Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Lightweight by Default
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+Every dependency, abstraction, and file MUST justify its existence. The project MUST minimize bundle size, runtime overhead, and cognitive complexity. No frameworks beyond what Cloudflare Workers natively supports. Prefer native Web APIs (fetch, Request, Response, WebSocket) over third-party wrappers. If a feature can be accomplished in fewer lines without a library, it MUST be done without a library.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. Simple Chat Interface
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+The chat interface MUST be intuitive and require zero configuration from the end user. The UI MUST be a single-page HTML interface with minimal JavaScript — no build step required for the frontend unless complexity demands it. All chat interactions MUST follow a straightforward request/response or streaming pattern. The interface MUST work in modern browsers without polyfills. Avoid over-engineering: a working chat box that sends and receives messages is the baseline, not a full-featured messaging platform.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. Cloudflare Workers First
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+All server-side logic MUST run on Cloudflare Workers. The architecture MUST respect Workers constraints: no Node.js-specific APIs, no filesystem access, execution within CPU time limits. Use Cloudflare-native services (KV, Durable Objects, R2, D1) when persistence or state is needed. The application MUST be deployable via `wrangler deploy` with no additional infrastructure. Cold start performance and edge execution are first-class concerns.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+## Technology Constraints
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+- **Runtime**: Cloudflare Workers (V8 isolate, not Node.js)
+- **Frontend**: Static HTML/CSS/JS served from Workers or Cloudflare Pages; no mandatory build toolchain
+- **State**: Cloudflare KV, Durable Objects, or D1 as needed — no external databases
+- **API Integration**: Cyclr connector APIs called from Workers via fetch
+- **Language**: TypeScript for Workers code; vanilla JS acceptable for simple frontend scripts
+- **Package Manager**: npm; dependencies MUST be kept to the absolute minimum
+- **Deployment**: Wrangler CLI (`wrangler deploy`); no Docker, no VMs, no containers
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+## Development Workflow
+
+- Keep the codebase small and navigable — a new developer MUST be able to understand the full project in under 30 minutes
+- Each feature MUST be testable locally using `wrangler dev`
+- Commits MUST be focused and atomic — one logical change per commit
+- Code review is encouraged but not gated for solo development
+- Prefer inline comments only where behavior is non-obvious; the code itself MUST be the primary documentation
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution is the authoritative guide for all architectural and design decisions in the Cyclr Testing Chat Interface project. Any proposed change that conflicts with these principles MUST be justified with a clear rationale and documented as a constitution amendment before implementation. Amendments require updating this file with a version bump and recording the change rationale.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-02

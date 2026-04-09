@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cyclr Chat</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Cyclr Chat</h1>
+      <div class="header-actions">
+        <span id="session-id-display" class="session-id"></span>
+        <button class="btn" id="new-chat-btn">New Chat</button>
+        <button class="btn btn-danger" id="clear-btn">Clear</button>
+        <button class="btn btn-primary" onclick="location.href='/setup.html'">Setup</button>
+      </div>
+    </div>
+
+    <div class="chat-area" id="chat-area"></div>
+
+    <div class="mode-selector">
+      <button class="mode-btn active" data-mode="mcp">Mode I: MCP</button>
+      <button class="mode-btn" data-mode="guided">Mode II: Guided</button>
+      <button class="mode-btn" data-mode="direct">Mode III: Direct API</button>
+    </div>
+
+    <div class="input-area">
+      <textarea id="message-input" placeholder="Type a message..." rows="1"></textarea>
+      <button class="btn btn-primary" id="send-btn">Send</button>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
