@@ -66,6 +66,7 @@ input.addEventListener('keydown', (e) => {
 document.getElementById('send-btn').addEventListener('click', sendMessage);
 document.getElementById('new-chat-btn').addEventListener('click', newChat);
 document.getElementById('clear-btn').addEventListener('click', clearChat);
+document.getElementById('record-btn').addEventListener('click', generateReport);
 
 async function ensureSession(mode) {
   if (!sessions[mode]) {
@@ -237,6 +238,185 @@ async function clearChat() {
   updateSessionDisplay('a');
   updateSessionDisplay('b');
   saveState();
+}
+
+// --- Record / Report ---
+
+async function generateReport() {
+  const btn = document.getElementById('record-btn');
+  btn.textContent = 'Generating...';
+  btn.disabled = true;
+
+  try {
+    // Fetch config
+    const configRes = await fetch(`${API}/config`);
+    const config = await configRes.json();
+
+    // Fetch session data for both modes
+    const sessionData = {};
+    for (const mode of ['a', 'b']) {
+      if (sessions[mode]) {
+        try {
+          const res = await fetch(`${API}/sessions/${sessions[mode]}`);
+          sessionData[mode] = await res.json();
+        } catch {
+          sessionData[mode] = null;
+        }
+      } else {
+        sessionData[mode] = null;
+      }
+    }
+
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    let report = '';
+
+    report += '='.repeat(80) + '\n';
+    report += 'CYCLR TEST CHAT — SESSION REPORT\n';
+    report += '='.repeat(80) + '\n';
+    report += `Generated: ${now.toLocaleString()}\n`;
+    report += `Timestamp: ${now.toISOString()}\n`;
+    report += '\n';
+
+    for (const mode of ['a', 'b']) {
+      const label = `MODE ${mode.toUpperCase()}`;
+      const prefix = `mode_${mode}_`;
+
+      report += '='.repeat(80) + '\n';
+      report += `${label}\n`;
+      report += '='.repeat(80) + '\n\n';
+
+      // --- Configuration ---
+      report += '-'.repeat(40) + '\n';
+      report += `${label} — CONFIGURATION\n`;
+      report += '-'.repeat(40) + '\n';
+
+      const get = (key) => config[prefix + key] || '(not set)';
+
+      report += `LLM Provider:      ${get('llm_provider')}\n`;
+      report += `LLM Model:         ${get('llm_model')}\n`;
+      report += `Tool Source:        ${get('tool_source')}\n`;
+      report += `System Prompt:     ${get('system_prompt')}\n`;
+
+      const toolSource = get('tool_source');
+      if (toolSource === 'mcp' || toolSource === '(not set)') {
+        const mcpUrl = get('mcp_server_urls');
+        report += `MCP Server URL:    ${mcpUrl}\n`;
+        // Fetch MCP tool details if URL is configured
+        if (mcpUrl && mcpUrl !== '(not set)') {
+          try {
+            const mcpRes = await fetch(`${API}/config/test-mcp`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ url: mcpUrl }),
+            });
+            const mcpData = await mcpRes.json();
+            if (mcpData.ok) {
+              report += `MCP Tools Count:   ${mcpData.tools}\n`;
+              report += `MCP Tools List:\n`;
+              (mcpData.toolList || []).forEach((t, i) => {
+                report += `  [${i + 1}] ${t.name}`;
+                if (t.description) report += ` — ${t.description}`;
+                report += '\n';
+              });
+            } else {
+              report += `MCP Status:        Connection failed (${mcpData.error})\n`;
+            }
+          } catch {
+            report += `MCP Status:        Could not fetch tool details\n`;
+          }
+        }
+      }
+
+      if (toolSource === 'direct') {
+        report += `Cyclr Connector ID:  ${get('cyclr_connector_id')}\n`;
+      }
+      report += '\n';
+
+      // --- Session Info ---
+      report += '-'.repeat(40) + '\n';
+      report += `${label} — SESSION INFO\n`;
+      report += '-'.repeat(40) + '\n';
+
+      const sd = sessionData[mode];
+      if (!sd) {
+        report += 'No active session.\n\n';
+        continue;
+      }
+
+      report += `Session ID:    ${sd.id || sessions[mode]}\n`;
+      report += `Mode:          ${sd.mode || '(unknown)'}\n`;
+      report += `LLM Provider:  ${sd.llm_provider || '(unknown)'}\n`;
+      report += `Created:       ${sd.created_at || ''}\n`;
+      report += `Updated:       ${sd.updated_at || ''}\n`;
+      report += `Active:        ${sd.is_active ? 'Yes' : 'No'}\n`;
+      report += '\n';
+
+      // --- Token Usage ---
+      report += '-'.repeat(40) + '\n';
+      report += `${label} — TOKEN USAGE\n`;
+      report += '-'.repeat(40) + '\n';
+      report += `Total Input Tokens:  ${totalTokens[mode].input.toLocaleString()}\n`;
+      report += `Total Output Tokens: ${totalTokens[mode].output.toLocaleString()}\n`;
+      report += `Total Tokens:        ${(totalTokens[mode].input + totalTokens[mode].output).toLocaleString()}\n`;
+
+      if (sd.usage && sd.usage.length > 0) {
+        report += '\nPer-message usage breakdown:\n';
+        sd.usage.forEach((u, i) => {
+          report += `  [${i + 1}] Model: ${u.model_name}, Input: ${u.input_tokens}, Output: ${u.output_tokens}, Cost: $${Number(u.estimated_cost_usd).toFixed(4)}\n`;
+        });
+      }
+      report += '\n';
+
+      // --- Chat History ---
+      report += '-'.repeat(40) + '\n';
+      report += `${label} — CHAT HISTORY\n`;
+      report += '-'.repeat(40) + '\n';
+
+      const messages = sd.messages || [];
+      if (messages.length === 0) {
+        report += 'No messages.\n';
+      } else {
+        messages.forEach((msg, i) => {
+          const role = (msg.role || '').toUpperCase();
+          report += `\n[${i + 1}] ${role} (seq: ${msg.sequence})\n`;
+          report += `    Time: ${msg.created_at}\n`;
+          report += `    Content:\n`;
+          const lines = (msg.content || '').split('\n');
+          lines.forEach(line => {
+            report += `      ${line}\n`;
+          });
+          if (msg.tool_calls) {
+            report += `    Tool Calls: ${msg.tool_calls}\n`;
+          }
+          if (msg.tool_results) {
+            report += `    Tool Results: ${msg.tool_results}\n`;
+          }
+        });
+      }
+      report += '\n';
+    }
+
+    report += '='.repeat(80) + '\n';
+    report += 'END OF REPORT\n';
+    report += '='.repeat(80) + '\n';
+
+    // Download as .txt file
+    const blob = new Blob([report], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cyclr-test-report-${timestamp}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('Error generating report: ' + e.message);
+  }
+
+  btn.textContent = 'Record';
+  btn.disabled = false;
 }
 
 restoreState();
