@@ -364,6 +364,20 @@ async function generateReport() {
       report += `Total Output Tokens: ${totalTokens[mode].output.toLocaleString()}\n`;
       report += `Total Tokens:        ${(totalTokens[mode].input + totalTokens[mode].output).toLocaleString()}\n`;
 
+      if (toolSource === 'direct') {
+        try {
+          const ipRes = await fetch(`${API}/config/egress-ip`);
+          const ipData = await ipRes.json();
+          if (ipData.ok) {
+            report += `Cloudflare Egress IP: ${ipData.ip}${ipData.colo ? ` (colo: ${ipData.colo})` : ''}\n`;
+          } else {
+            report += `Cloudflare Egress IP: (unavailable: ${ipData.error})\n`;
+          }
+        } catch (e) {
+          report += `Cloudflare Egress IP: (fetch failed)\n`;
+        }
+      }
+
       if (sd.usage && sd.usage.length > 0) {
         report += '\nPer-message usage breakdown:\n';
         sd.usage.forEach((u, i) => {

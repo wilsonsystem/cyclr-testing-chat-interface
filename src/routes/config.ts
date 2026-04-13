@@ -104,3 +104,19 @@ configRoutes.post('/test-mcp', async (c) => {
     return c.json({ ok: false, error: `Cannot reach MCP server: ${e}` }, 422);
   }
 });
+
+// GET /api/config/egress-ip — return the Cloudflare Worker egress IP (as seen by external services like Cyclr)
+configRoutes.get('/egress-ip', async (c) => {
+  try {
+    const res = await fetch('https://cloudflare.com/cdn-cgi/trace');
+    const text = await res.text();
+    const ipLine = text.split('\n').find((l) => l.startsWith('ip='));
+    const coloLine = text.split('\n').find((l) => l.startsWith('colo='));
+    const ip = ipLine ? ipLine.slice(3) : null;
+    const colo = coloLine ? coloLine.slice(5) : null;
+    if (!ip) return c.json({ ok: false, error: 'Could not parse IP from trace' }, 502);
+    return c.json({ ok: true, ip, colo });
+  } catch (e: unknown) {
+    return c.json({ ok: false, error: `Could not fetch egress IP: ${e}` }, 502);
+  }
+});
