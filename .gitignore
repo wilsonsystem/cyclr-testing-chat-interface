@@ -11,3 +11,6 @@ Thumbs.db
 .vscode/
 .idea/
 coverage/
+
+# Contains real Cyclr credentials — keep local only
+specs/001-multi-llm-chat-platform/contracts/api.md
