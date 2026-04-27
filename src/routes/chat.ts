@@ -128,7 +128,7 @@ chatRoutes.post('/', async (c) => {
     };
 
     if (cyclrConfig.accountId && cyclrConfig.clientId && cyclrConfig.clientSecret) {
-      tools = getCyclrToolsForLLM();
+      tools = getCyclrToolsForLLM(cyclrConfig.connectorId);
 
       return streamSSE(c, async (stream) => {
         const callTool = async (name: string, args: Record<string, unknown>) => {
