@@ -1,6 +1,7 @@
 import type { LLMTool } from './llm';
 import { QUICKBOOKS_METHODS, QUICKBOOKS_CATEGORIES } from '../data/quickbooks-methods';
 import { NETSUITE_METHODS, NETSUITE_CATEGORIES } from '../data/netsuite-methods';
+import { SALESFORCE_METHODS, SALESFORCE_CATEGORIES } from '../data/salesforce-methods';
 import { callCyclrMethod, type CyclrConfig } from './cyclr';
 
 interface ConnectorMethod {
@@ -33,6 +34,13 @@ const CONNECTORS: Record<string, ConnectorRegistry> = {
     methods: NETSUITE_METHODS,
     categories: NETSUITE_CATEGORIES,
     hints: 'Common methods: List Customers (1601504). Use cyclr_list_methods first to discover the right ID for other operations.',
+  },
+  '88933': {
+    id: '88933',
+    name: 'Salesforce',
+    methods: SALESFORCE_METHODS,
+    categories: SALESFORCE_CATEGORIES,
+    hints: 'Common methods: List Contacts (1597104), Create Account (1597088). Use cyclr_list_methods first to discover the right ID for other operations.',
   },
 };
 
